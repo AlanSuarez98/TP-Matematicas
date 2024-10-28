@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grafo en Forma de Pirámide</title>
+    <style>
+      #canvas {
+        border: 1px solid black;
+        width: 600px;
+        height: 400px;
+        position: relative;
+      }
+      .node {
+        position: absolute;
+        border: 2px solid blue;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        text-align: center;
+        background-color: lightblue;
+        color: black;
+        cursor: pointer;
+        line-height: 30px;
+      }
+      .weight {
+        position: absolute;
+        color: red;
+        font-weight: bold;
+        transform: translate(-50%, -50%);
+      }
+      #results {
+        margin-top: 20px;
+      }
+      table {
+        margin-top: 20px;
+        border-collapse: collapse;
+        width: 100%;
+      }
+      th,
+      td {
+        border: 1px solid black;
+        padding: 8px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Grafo con Nodos en Forma de Pirámide P1</h1>
+    <div id="canvas"></div>
+    <div>
+      <label for="startNode">Vertice de inicio:</label>
+      <input type="text" id="startNode" maxlength="1" />
+      <label for="endNode">Vertice final:</label>
+      <input type="text" id="endNode" maxlength="1" />
+      <input type="number" id="edgeWeight" placeholder="Peso de la arista" />
+      <button onclick="addEdge()">Agregar Arista</button>
+      <button onclick="findShortestPath()">Buscar Camino Mínimo</button>
+      <button onclick="createTablePrim()">Tabla de Prim</button>
+      <button onclick="createTableKruskal()">Tabla de Kruskal</button>
+      <button onclick="downloadReport()">Descargar Informe</button>
+    </div>
+    <div id="results"></div>
+
+    <script>
+      const canvas = document.getElementById("canvas");
+      const nodes = ["A", "B", "C", "D", "E"];
+      const edges = [];
+      const adjacencyList = new Map();
+
+      // Posiciones en forma de pirámide
+      const positions = [
+        { x: 300, y: 50 }, // A
+        { x: 200, y: 150 }, // B
+        { x: 400, y: 150 }, // C
+        { x: 125, y: 250 }, // D
+        { x: 475, y: 250 }, // E
+      ];
+
+      function initNodes() {
+        nodes.forEach((name, index) => {
+          const pos = positions[index];
+          const node = document.createElement("div");
+          node.className = "node";
+          node.innerText = name;
+          node.style.top = `${pos.y}px`;
+          node.style.left = `${pos.x}px`;
+          canvas.appendChild(node);
+          adjacencyList.set(name, []);
+        });
+      }
+
+      function addEdge() {
+        const startNode = document
+          .getElementById("startNode")
+          .value.toUpperCase();
+        const endNode = document.getElementById("endNode").value.toUpperCase();
+        const weight = parseInt(
+          document.getElementById("edgeWeight").value,
+          10
+        );
+
+        if (startNode && endNode && weight && startNode !== endNode) {
+          adjacencyList.get(startNode).push({ node: endNode, weight });
+          adjacencyList.get(endNode).push({ node: startNode, weight });
+          edges.push({ startNode, endNode, weight });
+          drawWeights(); // Solo muestra pesos, sin las líneas
+        }
+      }
+
+      function drawWeights() {
+        canvas.querySelectorAll(".weight").forEach((weight) => weight.remove());
+
+        edges.forEach((edge) => {
+          const startElem = [...canvas.children].find(
+            (n) => n.innerText === edge.startNode
+          );
+          const endElem = [...canvas.children].find(
+            (n) => n.innerText === edge.endNode
+          );
+          if (startElem && endElem) {
+            const startX = positions[nodes.indexOf(edge.startNode)].x + 15;
+            const startY = positions[nodes.indexOf(edge.startNode)].y + 15;
+            const endX = positions[nodes.indexOf(edge.endNode)].x + 15;
+            const endY = positions[nodes.indexOf(edge.endNode)].y + 15;
+
+            const weightElem = document.createElement("div");
+            weightElem.className = "weight";
+            weightElem.innerText = edge.weight;
+            weightElem.style.left = `${(startX + endX) / 2}px`;
+            weightElem.style.top = `${(startY + endY) / 2}px`;
+            canvas.appendChild(weightElem);
+          }
+        });
+      }
+
+      function findShortestPath() {
+        const startNode = document
+          .getElementById("startNode")
+          .value.toUpperCase();
+        const endNode = document.getElementById("endNode").value.toUpperCase();
+        const shortestPath = dijkstra(startNode, endNode);
+        document.getElementById(
+          "results"
+        ).innerHTML = `<p>Camino mínimo de ${startNode} a ${endNode}: ${shortestPath.path.join(
+          " -> "
+        )} (Costo: ${shortestPath.cost})</p>`;
+      }
+
+      function dijkstra(start, end) {
+        const distances = {};
+        const previous = {};
+        const queue = new PriorityQueue();
+
+        nodes.forEach((node) => {
+          distances[node] = Infinity;
+          previous[node] = null;
+        });
+        distances[start] = 0;
+        queue.enqueue(start, 0);
+
+        while (!queue.isEmpty()) {
+          const currentNode = queue.dequeue().element;
+
+          if (currentNode === end) {
+            const path = [];
+            let current = end;
+            while (current) {
+              path.unshift(current);
+              current = previous[current];
+            }
+            return { path, cost: distances[end] };
+          }
+
+          adjacencyList.get(currentNode).forEach((neighbor) => {
+            const alt = distances[currentNode] + neighbor.weight;
+            if (alt < distances[neighbor.node]) {
+              distances[neighbor.node] = alt;
+              previous[neighbor.node] = currentNode;
+              queue.enqueue(neighbor.node, alt);
+            }
+          });
+        }
+        return { path: [], cost: Infinity };
+      }
+
+      class PriorityQueue {
+        constructor() {
+          this.items = [];
+        }
+        enqueue(element, priority) {
+          this.items.push({ element, priority });
+          this.items.sort((a, b) => a.priority - b.priority);
+        }
+        dequeue() {
+          return this.items.shift();
+        }
+        isEmpty() {
+          return this.items.length === 0;
+        }
+      }
+
+      function createTablePrim() {
+        let result =
+          "<table><tr><th>Nodo</th><th>Conexión</th><th>Peso</th></tr>";
+        const visited = new Set();
+        const edgesPrim = [];
+
+        const startNode = nodes[0];
+        visited.add(startNode);
+
+        while (visited.size < nodes.length) {
+          let minEdge = null;
+          edges.forEach((edge) => {
+            if (visited.has(edge.startNode) && !visited.has(edge.endNode)) {
+              if (!minEdge || edge.weight < minEdge.weight) {
+                minEdge = edge;
+              }
+            }
+          });
+          if (minEdge) {
+            edgesPrim.push(minEdge);
+            visited.add(minEdge.endNode);
+          }
+        }
+
+        edgesPrim.forEach((edge) => {
+          result += `<tr><td>${edge.startNode}</td><td>${edge.endNode}</td><td>${edge.weight}</td></tr>`;
+        });
+
+        result += "</table>";
+        document.getElementById("results").innerHTML = result;
+      }
+
+      function createTableKruskal() {
+        let result =
+          "<table><tr><th>Nodo</th><th>Conexión</th><th>Peso</th></tr>";
+        const parent = {};
+        const rank = {};
+
+        const find = (node) => {
+          if (parent[node] === undefined) {
+            parent[node] = node;
+            rank[node] = 0;
+          }
+          if (parent[node] !== node) {
+            parent[node] = find(parent[node]);
+          }
+          return parent[node];
+        };
+
+        const union = (node1, node2) => {
+          const root1 = find(node1);
+          const root2 = find(node2);
+          if (root1 !== root2) {
+            if (rank[root1] > rank[root2]) {
+              parent[root2] = root1;
+            } else if (rank[root1] < rank[root2]) {
+              parent[root1] = root2;
+            } else {
+              parent[root2] = root1;
+              rank[root1]++;
+            }
+          }
+        };
+
+        const mst = [];
+        edges.sort((a, b) => a.weight - b.weight);
+
+        edges.forEach((edge) => {
+          if (find(edge.startNode) !== find(edge.endNode)) {
+            union(edge.startNode, edge.endNode);
+            mst.push(edge);
+          }
+        });
+
+        mst.forEach((edge) => {
+          result += `<tr><td>${edge.startNode}</td><td>${edge.endNode}</td><td>${edge.weight}</td></tr>`;
+        });
+
+        result += "</table>";
+        document.getElementById("results").innerHTML = result;
+      }
+
+      function downloadReport() {
+        window.location.href = "Tp-Matematicas.pdf";
+      }
+
+      window.onload = initNodes;
+    </script>
+  </body>
+</html>
